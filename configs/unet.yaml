@@ -1,0 +1,53 @@
+model:
+  name: unet
+  encoder_name: resnet34
+  encoder_weights: imagenet
+  in_channels: 3
+  classes: 1
+  activation: sigmoid
+
+data:
+  train_path: data/dataset/train_data_augmentation
+  val_path: data/dataset/test_data
+  img_size: 512
+  batch_size: 8
+  workers: 4
+
+train:
+  epochs: 100
+  optimizer:
+    name: Adam
+    lr: 0.001
+    weight_decay: 0.0001
+  scheduler:
+    name: ReduceLROnPlateau
+    mode: min
+    factor: 0.5
+    patience: 5
+    min_lr: 0.00001
+  loss:
+    name: BCEWithLogitsLoss
+
+val:
+  metrics:
+    - iou_score
+    - f1_score
+    - accuracy
+  threshold: 0.5
+
+augmentation:
+  train:
+    - name: HorizontalFlip
+      p: 0.5
+    - name: VerticalFlip
+      p: 0.5
+    - name: RandomRotate90
+      p: 0.5
+    - name: RandomBrightnessContrast
+      p: 0.5
+    - name: GaussNoise
+      p: 0.3
+  val:
+    - name: Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225] 

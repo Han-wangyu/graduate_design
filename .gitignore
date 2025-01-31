@@ -1,0 +1,11 @@
+# 数据集
+data/dataset/
+# 模型权重
+*.pt
+*.pth
+*.h5
+# 压缩文件
+*.zip
+*.tar
+*.gz
+*.rar
