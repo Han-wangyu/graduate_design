@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+from PIL import Image
 
 
 def parse_voc_xml(xml_path: str) -> Dict:
@@ -160,4 +161,34 @@ def collate_fn(batch):
     """自定义batch收集函数"""
     imgs, labels = zip(*batch)
     imgs = torch.stack(imgs)
-    return imgs, labels 
+    return imgs, labels
+
+
+class PCBDataset(Dataset):
+    def __init__(self, img_dir, mask_dir, transform=None):
+        self.img_dir = img_dir
+        self.mask_dir = mask_dir
+        self.transform = transform
+        self.images = sorted(os.listdir(img_dir))
+        self.masks = sorted(os.listdir(mask_dir))
+    
+    def __len__(self):
+        return len(self.images)
+    
+    def __getitem__(self, idx):
+        img_path = os.path.join(self.img_dir, self.images[idx])
+        mask_path = os.path.join(self.mask_dir, self.masks[idx])
+        
+        image = np.array(Image.open(img_path).convert('RGB'))
+        mask = np.array(Image.open(mask_path).convert('L')) / 255.0
+        
+        if self.transform:
+            augmented = self.transform(image=image, mask=mask)
+            image = augmented['image']
+            mask = augmented['mask']
+        
+        # 转换为PyTorch张量
+        image = torch.FloatTensor(image.transpose(2, 0, 1))
+        mask = torch.FloatTensor(mask).unsqueeze(0)
+        
+        return image, mask 

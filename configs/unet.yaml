@@ -7,14 +7,14 @@ model:
   activation: sigmoid
 
 data:
-  train_path: data/dataset/train_data_augmentation
+  train_path: data/dataset/train_data
   val_path: data/dataset/test_data
   img_size: 512
-  batch_size: 8
-  workers: 4
+  batch_size: 4
+  workers: 2
 
 train:
-  epochs: 100
+  epochs: 5
   optimizer:
     name: Adam
     lr: 0.001
