@@ -9,12 +9,12 @@ model:
 data:
   train_path: data/dataset/train_data
   val_path: data/dataset/test_data
-  img_size: 512
+  img_size: 416
   batch_size: 4
   workers: 2
 
 train:
-  epochs: 5
+  epochs: 3
   optimizer:
     name: Adam
     lr: 0.001
@@ -23,7 +23,7 @@ train:
     name: ReduceLROnPlateau
     mode: min
     factor: 0.5
-    patience: 5
+    patience: 2
     min_lr: 0.00001
   loss:
     name: BCEWithLogitsLoss
@@ -44,9 +44,9 @@ augmentation:
     - name: RandomRotate90
       p: 0.5
     - name: RandomBrightnessContrast
-      p: 0.5
-    - name: GaussNoise
       p: 0.3
+    - name: GaussNoise
+      p: 0.2
   val:
     - name: Normalize
       mean: [0.485, 0.456, 0.406]

@@ -1,6 +1,6 @@
 model:
   name: yolov8
-  variant: yolov8n  # 可选: yolov8n, yolov8s, yolov8m, yolov8l, yolov8x
+  variant: yolov8n  # 使用最小的模型
   pretrained: true
   num_classes: 1    # PCB缺陷检测类别数
   device: cpu       # 使用CPU训练
@@ -8,17 +8,17 @@ model:
 data:
   train_path: data/dataset/train_data
   val_path: data/dataset/test_data
-  img_size: 640
-  batch_size: 8     # 减小batch size以适应CPU训练
-  workers: 4
+  img_size: 416    # 减小图像尺寸
+  batch_size: 4    # 减小batch size
+  workers: 2       # 减少工作进程数
 
 train:
-  epochs: 10        # 减少训练轮次用于测试
+  epochs: 3        # 减少训练轮次
   lr0: 0.01
   lrf: 0.01
   momentum: 0.937
   weight_decay: 0.0005
-  warmup_epochs: 1  # 减少预热轮次
+  warmup_epochs: 0  # 关闭预热
   warmup_momentum: 0.8
   warmup_bias_lr: 0.1
 
@@ -37,5 +37,5 @@ augmentation:
   shear: 0.0
   flipud: 0.0
   fliplr: 0.5
-  mosaic: 1.0
+  mosaic: 0.0     # 关闭mosaic增强
   mixup: 0.0 
