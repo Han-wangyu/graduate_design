@@ -188,7 +188,9 @@ class PCBDataset(Dataset):
             mask = augmented['mask']
         
         # 转换为PyTorch张量
-        image = torch.FloatTensor(image.transpose(2, 0, 1))
-        mask = torch.FloatTensor(mask).unsqueeze(0)
+        if not isinstance(image, torch.Tensor):
+            image = torch.FloatTensor(image.transpose(2, 0, 1))
+        if not isinstance(mask, torch.Tensor):
+            mask = torch.FloatTensor(mask).unsqueeze(0)  # 添加通道维度
         
         return image, mask 

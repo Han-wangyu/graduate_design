@@ -1,0 +1,74 @@
+model:
+  name: unet
+  encoder_name: resnet34  # 使用较轻量级的编码器
+  encoder_weights: imagenet
+  in_channels: 3
+  classes: 1
+  activation: null  # 移除激活函数，使用损失函数中的sigmoid
+  pretrained: true
+  device: cpu
+
+data:
+  train_path: data/dataset/train_data
+  val_path: data/dataset/test_data
+  img_size: 512  # 与YOLO保持一致
+  batch_size: 8  # 与YOLO保持一致
+  workers: 2
+
+train:
+  epochs: 20  # 与YOLO保持一致
+  optimizer:
+    name: Adam
+    lr: 0.001  # 与YOLO的lr0保持一致
+    weight_decay: 0.0005  # 与YOLO保持一致
+  scheduler:
+    name: ReduceLROnPlateau
+    mode: min
+    factor: 0.1  # 与YOLO的lrf保持一致
+    patience: 2
+    min_lr: 0.0001
+  loss:
+    name: BCEWithLogitsLoss
+    pos_weight: 10.0  # 保持正样本权重
+  save_dir: experiments/unet  # 与YOLO的project风格保持一致
+
+val:
+  metrics:
+    - iou_score
+    - f1_score
+    - accuracy
+    - precision
+    - recall
+  threshold: 0.25  # 与YOLO的conf_thres保持一致
+
+augmentation:
+  train:
+    - name: Resize
+      height: 512
+      width: 512
+      p: 1.0
+    - name: HorizontalFlip
+      p: 0.5
+    - name: VerticalFlip
+      p: 0.5
+    - name: RandomRotate90
+      p: 0.5
+    - name: RandomBrightnessContrast
+      p: 0.3
+    - name: GaussNoise
+      p: 0.2
+    - name: Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+      max_pixel_value: 255.0
+      p: 1.0
+  val:
+    - name: Resize
+      height: 512
+      width: 512
+      p: 1.0
+    - name: Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+      max_pixel_value: 255.0
+      p: 1.0 

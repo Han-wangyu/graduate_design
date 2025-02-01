@@ -6,10 +6,12 @@ import torch
 import yaml
 from ultralytics import YOLO
 from torch.utils.data import DataLoader
-from torch.optim import Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim import Adam, AdamW
+from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingWarmRestarts
 import torch.nn as nn
 from tqdm import tqdm
+import json
+from datetime import datetime
 
 from utils.augmentation import get_train_transforms, get_val_transforms
 from utils.data_utils import create_dataloader, PCBDataset
@@ -72,8 +74,8 @@ def train_yolov8(cfg):
         val=True,
         save=True,
         save_period=10,
-        project='runs/train',
-        name='exp',
+        project=cfg['train'].get('project', 'experiments/yolo'),
+        name=cfg['train'].get('name', 'exp'),
         exist_ok=True
     )
 
@@ -118,22 +120,67 @@ def train_unet(cfg, device):
         num_workers=cfg['data']['workers']
     )
     
-    # 定义优化器和损失函数
-    optimizer = Adam(
-        model.parameters(),
-        lr=cfg['train']['optimizer']['lr'],
-        weight_decay=cfg['train']['optimizer']['weight_decay']
-    )
+    # 定义优化器
+    optimizer_name = cfg['train']['optimizer']['name'].lower()
+    if optimizer_name == 'adam':
+        optimizer = Adam(
+            model.parameters(),
+            lr=cfg['train']['optimizer']['lr'],
+            weight_decay=cfg['train']['optimizer']['weight_decay']
+        )
+    elif optimizer_name == 'adamw':
+        optimizer = AdamW(
+            model.parameters(),
+            lr=cfg['train']['optimizer']['lr'],
+            weight_decay=cfg['train']['optimizer']['weight_decay']
+        )
+    else:
+        raise ValueError(f'不支持的优化器: {optimizer_name}')
     
-    scheduler = ReduceLROnPlateau(
-        optimizer,
-        mode=cfg['train']['scheduler']['mode'],
-        factor=cfg['train']['scheduler']['factor'],
-        patience=cfg['train']['scheduler']['patience'],
-        min_lr=cfg['train']['scheduler']['min_lr']
-    )
+    # 定义学习率调度器
+    scheduler_name = cfg['train']['scheduler']['name']
+    if scheduler_name == 'ReduceLROnPlateau':
+        scheduler = ReduceLROnPlateau(
+            optimizer,
+            mode=cfg['train']['scheduler']['mode'],
+            factor=cfg['train']['scheduler']['factor'],
+            patience=cfg['train']['scheduler']['patience'],
+            min_lr=cfg['train']['scheduler']['min_lr']
+        )
+    elif scheduler_name == 'CosineAnnealingWarmRestarts':
+        scheduler = CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=cfg['train']['scheduler']['T_0'],
+            T_mult=cfg['train']['scheduler']['T_mult'],
+            eta_min=cfg['train']['scheduler']['eta_min']
+        )
+    else:
+        raise ValueError(f'不支持的学习率调度器: {scheduler_name}')
     
-    criterion = nn.BCEWithLogitsLoss()
+    # 定义损失函数
+    if 'pos_weight' in cfg['train']['loss']:
+        pos_weight = torch.tensor([cfg['train']['loss']['pos_weight']]).to(device)
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    else:
+        criterion = nn.BCEWithLogitsLoss()
+    
+    # 创建保存目录
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    save_dir = Path(cfg['train'].get('save_dir', 'experiments/unet'))
+    save_dir = save_dir / f'run_{timestamp}'
+    weights_dir = save_dir / 'weights'
+    weights_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 保存配置文件
+    with open(save_dir / 'config.yaml', 'w') as f:
+        yaml.dump(cfg, f, indent=2)
+    
+    # 准备记录训练历史
+    history = {
+        'train_loss': [],
+        'val_loss': [],
+        'learning_rates': []
+    }
     
     # 训练循环
     best_loss = float('inf')
@@ -155,6 +202,10 @@ def train_unet(cfg, device):
             
             train_loss += loss.item()
             pbar.set_postfix({'loss': loss.item()})
+            
+            # 更新余弦退火学习率
+            if scheduler_name == 'CosineAnnealingWarmRestarts':
+                scheduler.step(epoch + batch_idx / len(train_loader))
         
         # 验证
         model.eval()
@@ -163,24 +214,41 @@ def train_unet(cfg, device):
             for images, masks in val_loader:
                 images, masks = images.to(device), masks.to(device)
                 outputs = model(images)
+                # 确保mask有正确的维度
+                if masks.ndim == 3:
+                    masks = masks.unsqueeze(1)
                 val_loss += criterion(outputs, masks).item()
         
         train_loss /= len(train_loader)
         val_loss /= len(val_loader)
         
+        # 记录历史
+        history['train_loss'].append(train_loss)
+        history['val_loss'].append(val_loss)
+        history['learning_rates'].append(optimizer.param_groups[0]['lr'])
+        
         print(f'Epoch {epoch+1}:')
         print(f'Train Loss: {train_loss:.4f}')
         print(f'Val Loss: {val_loss:.4f}')
+        print(f'Learning Rate: {optimizer.param_groups[0]["lr"]:.6f}')
         
-        # 更新学习率
-        scheduler.step(val_loss)
+        # 更新ReduceLROnPlateau学习率
+        if scheduler_name == 'ReduceLROnPlateau':
+            scheduler.step(val_loss)
         
         # 保存最佳模型
         if val_loss < best_loss:
             best_loss = val_loss
-            save_path = Path('runs/train/exp/weights')
-            save_path.mkdir(parents=True, exist_ok=True)
-            torch.save(model.state_dict(), save_path / 'best.pt')
+            torch.save(model.state_dict(), weights_dir / 'best.pt')
+            print(f'保存最佳模型，验证损失: {val_loss:.4f}')
+        
+        # 保存最后一轮模型
+        if epoch == cfg['train']['epochs'] - 1:
+            torch.save(model.state_dict(), weights_dir / 'last.pt')
+    
+    # 保存训练历史
+    with open(save_dir / 'history.json', 'w') as f:
+        json.dump(history, f, indent=2)
 
 
 def main(args):
@@ -191,10 +259,6 @@ def main(args):
     # 设置设备
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
-    
-    # 创建输出目录
-    save_dir = Path('runs/train/exp')
-    save_dir.mkdir(parents=True, exist_ok=True)
     
     # 根据模型类型选择训练函数
     if cfg['model']['name'] == 'yolov8':

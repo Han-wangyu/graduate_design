@@ -1,6 +1,6 @@
 # PCB表面缺陷检测系统
 
-基于深度学习的PCB板焊接缺陷检测系统，支持多种先进的检测算法。本项目使用PCB-AoI数据集进行训练和评估，支持YOLOv8和U-Net等多种模型的训练和对比实验。
+基于深度学习的PCB板焊接缺陷检测系统，支持多种先进的检测算法。本项目使用PCB-AoI数据集进行训练和评估，支持YOLOv8和U-Net等多种模型的训练和对比实验，并提供模型融合功能以提高检测准确度。
 
 ## 功能特点
 
@@ -12,6 +12,11 @@
   - 自动化的实验运行
   - 实验结果可视化
   - 模型性能对比
+- 模型融合决策
+  - YOLO和UNET模型融合
+  - 基于置信度的加权决策
+  - 区域验证和互补检测
+  - 自适应阈值调整
 - 支持CPU和GPU训练
 - 提供完整的训练、验证和推理流程
 
@@ -26,7 +31,8 @@
 │   ├── dataset/      # PCB-AoI数据集
 │   └── pcb-aoi.md   # 数据集说明文档
 ├── models/           # 模型定义
-│   └── unet/        # U-Net模型实现
+│   ├── unet/        # U-Net模型实现
+│   └── fusion.py    # 模型融合实现
 ├── tools/            # 工具脚本
 │   ├── convert_voc_to_yolo.py  # VOC转YOLO格式工具
 │   └── convert_voc_to_mask.py  # VOC转分割掩码工具
@@ -38,6 +44,7 @@
 ├── evaluate.py      # 评估脚本
 ├── predict.py       # YOLO预测脚本
 ├── predict_unet.py  # UNET预测脚本
+├── predict_fusion.py # 融合模型预测脚本
 └── requirements.txt  # 依赖包
 ```
 
@@ -102,6 +109,7 @@ python3 train.py --config configs/unet.yaml --device cpu
 
 ### 3. 预测
 
+#### 单模型预测
 ```bash
 # YOLOv8预测
 python3 predict.py --weights runs/train/exp/weights/best.pt --source data/dataset/test_data/images
@@ -109,6 +117,37 @@ python3 predict.py --weights runs/train/exp/weights/best.pt --source data/datase
 # U-Net预测
 python3 predict_unet.py --weights runs/train/exp/weights/best.pt --source data/dataset/test_data/images
 ```
+
+#### 融合模型预测
+```bash
+# 使用融合模型预测
+python3 predict_fusion.py \
+    --yolo-weights runs/train/yolo/weights/best.pt \
+    --unet-weights runs/train/unet/weights/best.pt \
+    --source data/dataset/test_data/images \
+    --device cpu \
+    --yolo-conf 0.25 \
+    --unet-conf 0.5
+```
+
+## 模型融合策略
+
+### 1. 基本原理
+- YOLO提供精确的目标定位和分类
+- UNET提供像素级的分割信息
+- 融合决策结合两个模型的优势
+
+### 2. 融合方法
+- 区域验证：使用YOLO定位区域，UNET验证区域内的缺陷
+- 置信度加权：根据各模型的置信度进行加权决策
+- 互补检测：利用两个模型的互补性提高检测准确度
+- 自适应阈值：根据两个模型的预测一致性动态调整阈值
+
+### 3. 参数调整
+- yolo-conf：YOLO模型的置信度阈值
+- unet-conf：UNET模型的置信度阈值
+- iou-thres：区域重叠的IoU阈值
+- min-area：最小缺陷区域面积
 
 ## 实验结果
 
@@ -136,13 +175,19 @@ python3 predict_unet.py --weights runs/train/exp/weights/best.pt --source data/d
    - 优化学习率策略
    - 增强数据增强方法
 
-2. 功能完善：
+2. 融合策略优化：
+   - 添加更多融合策略选项
+   - 实现自动参数优化
+   - 添加更多评估指标
+   - 支持在线模型选择
+
+3. 功能完善：
    - 添加TensorBoard支持
    - 添加模型集成功能
    - 支持更多的评估指标
    - 添加交互式可视化界面
 
-3. 工程优化：
+4. 工程优化：
    - 添加分布式训练支持
    - 优化数据加载性能
    - 添加模型压缩功能
