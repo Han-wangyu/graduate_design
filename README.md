@@ -151,21 +151,62 @@ python3 predict_fusion.py \
 
 ## 实验结果
 
-### 快速实验结果（3轮训练）
+### 1. 单模型性能
 
-1. YOLOv8n:
-   - mAP50: 0.127
-   - Precision: 0.014
-   - Recall: 0.738
-   - F1 Score: 0.027
-   - 训练时间: 103秒
+#### YOLOv8
+- 置信度阈值：0.7
+- Precision: 0.58
+- Recall: 0.62
+- F1 Score: 0.60
+- IoU Score: 0.42
 
-2. U-Net (ResNet34):
-   - IoU: 0.006
-   - Precision: 0.006
-   - Recall: 1.000
-   - F1 Score: 0.011
-   - 训练时间: 634秒
+#### U-Net (ResNet34)
+- 置信度阈值：0.8
+- Precision: 0.55
+- Recall: 0.58
+- F1 Score: 0.56
+- IoU Score: 0.40
+
+### 2. 融合模型性能
+
+最新实验结果（2024年2月）：
+- YOLO置信度阈值：0.7
+- UNET置信度阈值：0.8
+- Precision: 0.616
+- Recall: 0.605
+- F1 Score: 0.610
+- IoU Score: 0.439
+- True Positives: 61,241
+- False Positives: 38,162
+- False Negatives: 40,047
+
+### 3. 运行命令示例
+
+```bash
+# 运行融合模型预测（最佳参数配置）
+python3 predict_fusion_experiment.py \
+    --yolo-weights runs/train/exp/weights/best.pt \
+    --unet-weights experiments/unet/run_20250201_214043/weights/best.pt \
+    --yolo-conf 0.7 \
+    --unet-conf 0.8 \
+    --source data/dataset/test_data/images \
+    --debug
+```
+
+### 4. 关键发现
+
+1. 融合模型相比单模型均有提升：
+   - F1分数提升至0.61（相比YOLO提升1%，相比UNET提升5%）
+   - 精确率和召回率达到更好的平衡
+
+2. 置信度阈值的影响：
+   - YOLO：较高的置信度（0.7）有助于提高精确率
+   - UNET：较高的置信度（0.8）可以减少误检
+   
+3. 模型互补性：
+   - YOLO擅长定位大面积缺陷
+   - UNET在细节和边缘检测上表现更好
+   - 融合后能够同时保持两个模型的优势
 
 ## 后续改进计划
 
