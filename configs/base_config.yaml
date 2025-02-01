@@ -1,0 +1,68 @@
+model:
+  name: null  # 将由具体实验配置指定
+  variant: null  # 将由具体实验配置指定
+  encoder_name: null  # 将由具体实验配置指定
+  encoder_weights: imagenet
+  in_channels: 3
+  classes: 1
+  num_classes: 1
+  activation: sigmoid
+  pretrained: true
+  device: cpu
+
+data:
+  train_path: data/dataset/train_data
+  val_path: data/dataset/test_data
+  img_size: 512  # 保持较大的图像尺寸以避免特征图太小
+  batch_size: 8  # 保持较大的批量大小以确保BatchNorm正常工作
+  workers: 2
+
+train:
+  epochs: 3  # demo阶段只跑3轮，确保每个模型都能完整训练
+  optimizer:
+    name: Adam
+    lr: 0.001
+    weight_decay: 0.0001
+  scheduler:
+    name: ReduceLROnPlateau
+    mode: min
+    factor: 0.5
+    patience: 1  # 减少学习率调整的等待轮数
+    min_lr: 0.0001  # 提高最小学习率
+  loss:
+    name: BCEWithLogitsLoss
+  # YOLO特定参数
+  lr0: 0.001
+  lrf: 0.1  # 增大学习率衰减因子，加快收敛
+  momentum: 0.937
+  weight_decay: 0.0005
+  warmup_epochs: 1  # demo阶段只需要1轮预热
+  warmup_momentum: 0.8
+  warmup_bias_lr: 0.1
+
+val:
+  metrics:
+    - iou_score
+    - f1_score
+    - accuracy
+  threshold: 0.5
+  conf_thres: 0.001
+  iou_thres: 0.6
+  max_det: 300
+
+augmentation:
+  train:
+    - name: HorizontalFlip
+      p: 0.5
+    - name: VerticalFlip
+      p: 0.5
+    - name: RandomRotate90
+      p: 0.5
+    - name: RandomBrightnessContrast
+      p: 0.3
+    - name: GaussNoise
+      p: 0.2
+  val:
+    - name: Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225] 

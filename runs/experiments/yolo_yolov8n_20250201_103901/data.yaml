@@ -1,0 +1,6 @@
+names:
+- defect
+nc: 1
+path: data/dataset
+train: data/dataset/train_data/images
+val: data/dataset/test_data/images

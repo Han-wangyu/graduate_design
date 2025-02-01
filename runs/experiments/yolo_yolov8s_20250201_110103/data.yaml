@@ -1,0 +1,6 @@
+names:
+- defect
+nc: 1
+path: /Users/bytedance/myspace/graduate_design/data/dataset
+train: /Users/bytedance/myspace/graduate_design/data/dataset/train_data/images
+val: /Users/bytedance/myspace/graduate_design/data/dataset/test_data/images
